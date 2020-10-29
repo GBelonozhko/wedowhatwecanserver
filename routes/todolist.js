@@ -45,10 +45,10 @@ router.post('/addTodo/', (req, res, next) => {
       const creatorId = req.params.id
 
       let start = new Date();
-      start.setHours(0,0,0,0);
+      start.setDate(start.getDate()-1);
 
       let end = new Date();
-      end.setHours(23,59,59,999);
+      
       console.log(start, end)
       filtTitle=="TodaysAgenda"?Todos.find({
         'creator':creatorId , 
