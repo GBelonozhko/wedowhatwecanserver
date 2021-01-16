@@ -25,6 +25,14 @@ const ToDoSchema = new mongoose.Schema({
   isVisible: {
     type: Boolean,
     default: true
+  },
+
+  color:{
+    type: String,
+  },
+
+  duration:{
+    type:Object
   }
       
 

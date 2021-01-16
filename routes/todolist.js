@@ -7,7 +7,6 @@ const User = require('../models/user');
 
 router.get('/todolists/:userId', (req, res) => { 
   Todos.find({"creator":req.params.userId}).distinct("title")
-  
   .then(todolist => {
     console.log(todolist)
     res.status(200).json({
@@ -19,9 +18,18 @@ router.get('/todolists/:userId', (req, res) => {
    
 });
 
-router.get('/todolists/:userId/:start/:end', (req, res) => {
-  Todos.find({'creator':req.params.userId , created_on: {$gte:req.params.start, $lt: req.params.end}})
-})
+router.get('/alltodos/:userId', (req, res) => { 
+  Todos.find({"creator":req.params.userId})
+    .then(todolist => {
+      console.log(todolist)
+      res.status(200).json({
+      todosData: todolist
+      })
+    
+    })
+   
+});
+
 
 router.post('/addTodo/', (req, res, next) => {     
   const todo = new Todos(req.body.newtask)
@@ -40,34 +48,104 @@ router.post('/addTodo/', (req, res, next) => {
 
     });
 
+    router.get('/userTodoListData/:userId', (req,res) => {
+
+      let outPutObj=[];
+      let constructObj= {title:null, color: null, todos:[]};
+      Todos.find({"creator":req.params.userId}).distinct("title")
+       .then(todolists => { 
+         todolists.map(title => {
+           constructObj={...constructObj,title:title};
+           Todos.find({"creator": req.params.userId, "title":title})
+            .then(todoList=> {
+              constructObj={...constructObj,todoList:todoList, color:todoList[0].color};
+              outPutObj.push(constructObj)
+            })
+         })
+       })
+       res.status(200).json(outPutObj)
+    })
+
     router.get('/todolist/:id/:title', (req, res) => {
       const filtTitle = req. params.title
       const creatorId = req.params.id
 
       let start = new Date();
       start.setDate(start.getDate()-1);
-
       let end = new Date();
-      
-      console.log(start, end)
+
+      let startOD = new Date();
+      startOD.setDate(start.getDate()-5);
+      let endOD = new Date();
+      endOD.setDate(endOD.getDate()-3) 
+      switch(filtTitle) {
+        case "TodaysAgenda":
+          Todos.find({
+            'creator':creatorId , 
+            'createdAt': {$gte:start, $lt:end}
+          }).then(todo=>{
+            res.status(200).json({
+              todoData:todo,
+              todoTitle:"TodaysAgenda"
+            })
+          })
+          break;
+         case "InCompletes":
+          Todos.find({
+            'creator':creatorId , 
+            "isComplete":false
+          }).then(todo=>{
+            res.status(200).json({
+              todoData:todo,
+              todoTitle:"InCompletes"
+            })
+          })
+          break;
+          case "OverDue":
+          Todos.find({
+            'creator':creatorId , 
+            "isComplete":false,
+            'createdAt': {$lt:endOD}
+          }).then(todo=>{
+            res.status(200).json({
+              todoData:todo,
+              todoTitle:"TodaysAgenda"
+            })
+          })
+          break;
+          
+        default:
+          Todos.find({"creator": creatorId, "title":filtTitle})
+       .then(todo => {
+         
+         res.status(200).json({
+           todoData: todo,
+           todoTitle: filtTitle
+         })
+       })
+      }
+    })
+/*
       filtTitle=="TodaysAgenda"?Todos.find({
         'creator':creatorId , 
         'createdAt': {$gte:start, $lt:end}
       }).then(todo=>{
         res.status(200).json({
-          todoData:todo
+          todoData:todo,
+          todoTitle:"TodaysAgenda"
         })
       })
      :Todos.find({"creator": creatorId, "title":filtTitle})
        .then(todo => {
          
          res.status(200).json({
-           todoData: todo
+           todoData: todo,
+           todoTitle: filtTitle
          })
        })
      });
 
-
+*/
 router.get('/todolistCompletes/:userId' , (req, res) =>{
  
   Todos.find({"isComplete":true, 'creator':req.params.userId})
@@ -77,12 +155,48 @@ router.get('/todolistCompletes/:userId' , (req, res) =>{
       })
 } )
 
+router.get('/todolistCompletes/:userId/:title' , (req, res) =>{
+ 
+  Todos.find({"isComplete":true, "creator":req.params.userId, "title":req.params.title })
+    .countDocuments()
+      .then(count => {
+        res.status(200).json({listCompletes:count})
+      })
+} )
+
 router.get('/todolisttasksCreated/:userId' , (req, res) =>{
   
   Todos.find({"creator": req.params.userId})
     .countDocuments()
       .then(count => {
         res.json({totalTasks:count})
+      })
+} )
+
+router.get('/totalincompletes/:userId' , (req, res) =>{
+  
+  Todos.find({"isComplete":false, "creator":req.params.userId})
+    .countDocuments()
+      .then(count => {
+        res.json({totalTasks:count})
+      })
+} )
+
+router.get('/incompletelisttasks/:userId/:title' , (req, res) =>{
+ 
+  Todos.find({"isComplete":false, "creator":req.params.userId, "title":req.params.title })
+    .countDocuments()
+      .then(count => {
+        res.status(200).json({incompletes:count})
+      })
+} )
+
+router.get('/todolisttasksCreated/:userId/:title' , (req, res) =>{
+ 
+  Todos.find({"creator":req.params.userId, "title":req.params.title })
+    .countDocuments()
+      .then(count => {
+        res.status(200).json({listTasks:count})
       })
 } )
 
@@ -122,6 +236,17 @@ router.patch('/CompleteTodo/:id', (req, res, next) =>{
     });
 });
 
+router.patch('/updateDuration/:id', (req, res, next) =>{    
+  console.log(req.body.isCompleteData)
+  Todos.updateOne({"_id":req.params.id}, {$set:{"duration": req.body.duration }} )
+    .then(function() {
+      res.json('todo updated');
+    })
+    .catch(function(err) {
+      res.status(422).send("todo update failed.");
+    });
+});
+
 router.delete('/deletetodo/:id', (req, res, next) => {  
   Todos.findById(req.params.id)
     .then(result => {
@@ -137,7 +262,6 @@ router.delete('/deletetodo/:id', (req, res, next) => {
           
         })
         
-    
   });
 
 
